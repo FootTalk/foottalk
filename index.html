@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FootTalk — サッカー掲示板</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --green: #00C17C;
+  --green-dark: #008F5A;
+  --green-dim: #00C17C22;
+  --red: #FF3B5C;
+  --red-dim: #FF3B5C22;
+  --amber: #F59E0B;
+  --purple: #7C3AED;
+  --bg: #0D0F0E;
+  --bg2: #161918;
+  --bg3: #1E2220;
+  --border: #2A2E2C;
+  --text: #F0F2F1;
+  --text2: #8A9490;
+  --text3: #4A524E;
+  --radius: 10px;
+  --font-head: 'Bebas Neue', sans-serif;
+  --font-body: 'Noto Sans JP', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; }
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* ── Layout ── */
+.app {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  grid-template-rows: 54px 1fr;
+  grid-template-areas: "header header" "sidebar main";
+  min-height: 100vh;
+}
+@media (max-width: 768px) {
+  .app { grid-template-columns: 1fr; grid-template-areas: "header" "main"; }
+  .sidebar { display: none; }
+  .mobile-nav { display: flex !important; }
+}
+
+/* ── Header ── */
+.header {
+  grid-area: header;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+.logo-mark {
+  width: 32px; height: 32px;
+  background: var(--green);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.logo-text {
+  font-family: var(--font-head);
+  font-size: 26px;
+  color: var(--text);
+  letter-spacing: 1px;
+}
+.logo-text span { color: var(--green); }
+.header-right { display: flex; align-items: center; gap: 10px; }
+.header-search {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 13px;
+  color: var(--text2);
+  cursor: pointer;
+  transition: border-color .2s;
+}
+.header-search:hover { border-color: var(--green); color: var(--text); }
+@media (max-width: 600px) { .header-search { display: none; } }
+.btn-new {
+  background: var(--green);
+  color: #000;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 13px;
+  border: none;
+  border-radius: 20px;
+  padding: 7px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .2s, transform .1s;
+}
+.btn-new:hover { background: #00d98a; }
+.btn-new:active { transform: scale(.97); }
+.avatar-btn {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--purple);
+  border: none;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; color: #fff;
+  font-family: var(--font-body);
+  flex-shrink: 0;
+}
+
+/* ── Sidebar ── */
+.sidebar {
+  grid-area: sidebar;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  position: sticky;
+  top: 54px;
+  height: calc(100vh - 54px);
+  padding-bottom: 80px;
+}
+.sidebar-section { padding: 16px 0 4px; }
+.sidebar-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text3);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 0 16px;
+  margin-bottom: 4px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 16px;
+  font-size: 13px;
+  color: var(--text2);
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: all .15s;
+  gap: 8px;
+}
+.nav-item:hover { color: var(--text); background: var(--bg3); }
+.nav-item.active { color: var(--green); border-left-color: var(--green); background: var(--green-dim); font-weight: 500; }
+.nav-item .nav-icon { font-size: 15px; flex-shrink: 0; }
+.nav-item .nav-name { flex: 1; }
+.badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: var(--green-dim);
+  color: var(--green);
+  flex-shrink: 0;
+}
+.badge.live { background: var(--red-dim); color: var(--red); animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+.sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+
+/* ── Main ── */
+.main { grid-area: main; display: flex; flex-direction: column; min-height: calc(100vh - 54px); }
+
+/* ── Score ticker ── */
+.score-ticker {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 0 12px;
+  overflow-x: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  height: 46px;
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+.score-ticker::-webkit-scrollbar { display: none; }
+.score-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: border-color .15s;
+}
+.score-card:hover { border-color: var(--green); }
+.score-card.live-game { border-color: var(--red); }
+.score-teams { font-size: 12px; color: var(--text2); }
+.score-val { font-size: 13px; font-weight: 700; color: var(--text); }
+.score-min { font-size: 11px; color: var(--red); font-weight: 700; }
+.score-done { font-size: 11px; color: var(--text3); }
+.ticker-label {
+  font-size: 10px; font-weight: 700;
+  color: var(--text3); letter-spacing: .06em;
+  text-transform: uppercase; flex-shrink: 0;
+}
+
+/* ── Board toolbar ── */
+.board-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.board-title {
+  font-family: var(--font-head);
+  font-size: 22px;
+  letter-spacing: .5px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.board-title .live-chip {
+  font-size: 10px; font-weight: 700;
+  background: var(--red-dim); color: var(--red);
+  padding: 3px 8px; border-radius: 10px;
+  animation: pulse 1.5s infinite;
+  font-family: var(--font-body);
+}
+.sort-tabs { display: flex; gap: 4px; }
+.sort-tab {
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all .15s;
+  font-family: var(--font-body);
+}
+.sort-tab.active, .sort-tab:hover { background: var(--green-dim); color: var(--green); border-color: var(--green); }
+
+/* ── Thread list ── */
+.thread-list { flex: 1; }
+.thread-item {
+  display: flex;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .12s;
+  position: relative;
+}
+.thread-item:hover { background: var(--bg2); }
+.thread-item.pinned { border-left: 3px solid var(--amber); }
+.thread-num {
+  font-size: 11px;
+  color: var(--text3);
+  min-width: 22px;
+  padding-top: 2px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.thread-body { flex: 1; min-width: 0; }
+.thread-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 5px; }
+.tag {
+  font-size: 10px; font-weight: 700;
+  padding: 2px 7px; border-radius: 8px;
+  letter-spacing: .02em;
+}
+.tag-live { background: var(--red-dim); color: var(--red); }
+.tag-hot { background: #F59E0B22; color: var(--amber); }
+.tag-league { background: var(--green-dim); color: var(--green); }
+.tag-team { background: #7C3AED22; color: var(--purple); }
+.tag-new { background: #0EA5E922; color: #38BDF8; }
+.thread-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 5px;
+  line-height: 1.45;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.thread-meta { font-size: 11px; color: var(--text3); display: flex; gap: 10px; flex-wrap: wrap; }
+.thread-meta span { display: flex; align-items: center; gap: 3px; }
+.thread-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  min-width: 48px;
+}
+.stat-num { font-size: 15px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.stat-label { font-size: 10px; color: var(--text3); }
+.thread-item.live-thread { background: #FF3B5C06; }
+.thread-item.live-thread:hover { background: #FF3B5C10; }
+
+/* ── Call bar ── */
+.call-bar {
+  position: sticky;
+  bottom: 0;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  backdrop-filter: blur(12px);
+}
+.call-avatars { display: flex; }
+.call-av {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 2px solid var(--bg2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+  flex-shrink: 0;
+}
+.call-av + .call-av { margin-left: -8px; }
+.call-info { flex: 1; }
+.call-info .call-title { font-size: 13px; font-weight: 500; color: var(--text); }
+.call-info .call-sub { font-size: 11px; color: var(--text3); }
+.call-btns { display: flex; gap: 8px; }
+.btn-join {
+  background: var(--green);
+  color: #000;
+  font-weight: 700;
+  font-size: 12px;
+  border: none;
+  border-radius: 16px;
+  padding: 7px 16px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: background .15s, transform .1s;
+}
+.btn-join:hover { background: #00d98a; }
+.btn-join:active { transform: scale(.96); }
+.btn-start {
+  background: transparent;
+  color: var(--text2);
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 7px 14px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: all .15s;
+}
+.btn-start:hover { border-color: var(--green); color: var(--green); }
+
+/* ── Mobile bottom nav ── */
+.mobile-nav {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+  z-index: 200;
+  justify-content: space-around;
+}
+.mobile-nav-item {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 3px;
+  font-size: 10px; color: var(--text3);
+  cursor: pointer; padding: 4px 12px;
+  border-radius: 8px; transition: color .15s;
+}
+.mobile-nav-item.active { color: var(--green); }
+.mobile-nav-item .m-icon { font-size: 20px; }
+
+/* ── Animations ── */
+.thread-item { animation: fadeUp .25s ease both; }
+.thread-item:nth-child(1) { animation-delay: .03s; }
+.thread-item:nth-child(2) { animation-delay: .06s; }
+.thread-item:nth-child(3) { animation-delay: .09s; }
+.thread-item:nth-child(4) { animation-delay: .12s; }
+.thread-item:nth-child(5) { animation-delay: .15s; }
+.thread-item:nth-child(6) { animation-delay: .18s; }
+.thread-item:nth-child(7) { animation-delay: .21s; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+/* ── Score card detail panel (slide-in) ── */
+.score-detail {
+  display: none;
+  position: fixed;
+  top: 54px; left: 0; right: 0; bottom: 0;
+  background: var(--bg);
+  z-index: 300;
+  padding: 24px 16px;
+  animation: slideUp .25s ease;
+}
+.score-detail.open { display: block; }
+@keyframes slideUp { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
+.score-detail-close {
+  position: absolute; top: 16px; right: 16px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 50%; width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 18px; color: var(--text2);
+}
+.score-big {
+  text-align: center;
+  margin-top: 16px;
+}
+.score-big .teams-row {
+  display: flex; align-items: center; justify-content: center; gap: 24px;
+  margin-bottom: 12px;
+}
+.score-big .team-name { font-size: 20px; font-weight: 700; }
+.score-big .scoreline { font-family: var(--font-head); font-size: 64px; color: var(--green); letter-spacing: 4px; }
+.score-big .matchinfo { font-size: 13px; color: var(--text3); margin-top: 4px; }
+.events-list { margin-top: 24px; }
+.event-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.event-min { font-size: 11px; font-weight: 700; color: var(--amber); min-width: 32px; }
+.event-icon { font-size: 16px; }
+.event-text { color: var(--text); }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- Header -->
+  <header class="header">
+    <a class="logo" href="#">
+      <div class="logo-mark">⚽</div>
+      <span class="logo-text">FOOT<span>TALK</span></span>
+    </a>
+    <div class="header-right">
+      <div class="header-search">🔍 スレ検索...</div>
+      <button class="btn-new">＋ スレを立てる</button>
+      <button class="avatar-btn">名</button>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">メニュー</div>
+      <div class="nav-item active"><span class="nav-icon">🏠</span><span class="nav-name">トップ</span><span class="badge live">LIVE</span></div>
+      <div class="nav-item"><span class="nav-icon">🔥</span><span class="nav-name">人気スレ</span></div>
+      <div class="nav-item"><span class="nav-icon">📡</span><span class="nav-name">実況ライブ板</span><span class="badge live">3</span></div>
+      <div class="nav-item"><span class="nav-icon">⭐</span><span class="nav-name">お気に入り</span></div>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">リーグ</div>
+      <div class="nav-item active"><span class="nav-icon">🇯🇵</span><span class="nav-name">Jリーグ</span><span class="badge">24</span></div>
+      <div class="nav-item"><span class="nav-icon">🏴󠁧󠁢󠁥󠁮󠁧󠁿</span><span class="nav-name">プレミアリーグ</span></div>
+      <div class="nav-item"><span class="nav-icon">🇪🇸</span><span class="nav-name">ラ・リーガ</span></div>
+      <div class="nav-item"><span class="nav-icon">🇩🇪</span><span class="nav-name">ブンデスリーガ</span></div>
+      <div class="nav-item"><span class="nav-icon">🇮🇹</span><span class="nav-name">セリエA</span></div>
+      <div class="nav-item"><span class="nav-icon">🌍</span><span class="nav-name">CL・代表</span></div>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">チーム板</div>
+      <div class="nav-item"><span class="nav-icon">🔴</span><span class="nav-name">浦和レッズ</span><span class="badge">5</span></div>
+      <div class="nav-item"><span class="nav-icon">🔵</span><span class="nav-name">横浜F・マリノス</span></div>
+      <div class="nav-item"><span class="nav-icon">🔴</span><span class="nav-name">マンチェスターU</span></div>
+      <div class="nav-item"><span class="nav-icon">⚪</span><span class="nav-name">レアル・マドリー</span></div>
+      <div class="nav-item"><span class="nav-icon">🔵🔴</span><span class="nav-name">バルセロナ</span></div>
+      <div class="nav-item"><span class="nav-icon">⚫🔵</span><span class="nav-name">インテル</span></div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- Score ticker -->
+    <div class="score-ticker">
+      <span class="ticker-label">LIVE</span>
+      <div class="score-card live-game" onclick="openScore()">
+        <span class="score-teams">浦和 vs 横浜FM</span>
+        <span class="score-val">2 - 1</span>
+        <span class="score-min">67'</span>
+      </div>
+      <div class="score-card live-game">
+        <span class="score-teams">川崎 vs 鹿島</span>
+        <span class="score-val">0 - 0</span>
+        <span class="score-min">34'</span>
+      </div>
+      <div class="score-card live-game">
+        <span class="score-teams">神戸 vs FC東京</span>
+        <span class="score-val">1 - 2</span>
+        <span class="score-min">80'</span>
+      </div>
+      <span class="ticker-label" style="margin-left:4px">FT</span>
+      <div class="score-card">
+        <span class="score-teams">Man U vs Arsenal</span>
+        <span class="score-val">3 - 1</span>
+        <span class="score-done">終了</span>
+      </div>
+      <div class="score-card">
+        <span class="score-teams">Real vs Barça</span>
+        <span class="score-val">2 - 2</span>
+        <span class="score-done">終了</span>
+      </div>
+    </div>
+
+    <!-- Board toolbar -->
+    <div class="board-toolbar">
+      <div class="board-title">
+        Jリーグ板
+        <span class="live-chip">● LIVE 3試合</span>
+      </div>
+      <div class="sort-tabs">
+        <button class="sort-tab active">新着</button>
+        <button class="sort-tab">人気</button>
+        <button class="sort-tab">実況</button>
+      </div>
+    </div>
+
+    <!-- Thread list -->
+    <div class="thread-list">
+
+      <div class="thread-item live-thread">
+        <div class="thread-num">1</div>
+        <div class="thread-body">
+          <div class="thread-tags">
+            <span class="tag tag-live">● LIVE</span>
+            <span class="tag tag-league">Jリーグ</span>
+            <span class="tag tag-team">浦和</span>
+          </div>
+          <div class="thread-title">【実況】浦和レッズ vs 横浜F・マリノス — 67分 2-1！！マルティノスのゴール！！🔥</div>
+          <div class="thread-meta">
+            <span>名無し</span><span>💬 2分前</span><span>更新中</span>
+          </div>
+        </div>
+        <div class="thread-stats">
+          <span class="stat-num">482</span>
+          <span class="stat-label">レス</span>
+        </div>
+      </div>
+
+      <div class="thread-item pinned">
+        <div class="thread-num">2</div>
+        <div class="thread-body">
+          <div class="thread-tags">
+            <span class="tag tag-hot">📌 固定</span>
+            <span class="tag tag-league">Jリーグ</span>
+          </div>
+          <div class="thread-title">【2026シーズン】Jリーグ順位表&得点ランキング まとめスレ【随時更新】</div>
+          <div class="thread-meta">
+            <span>管理人</span><span>💬 1時間前</span>
+          </div>
+        </div>
+        <div class="thread-stats">
+          <span class="stat-num">2.1k</span>
+          <span class="stat-label">レス</span>
+        </div>
+      </div>
+
+      <div class="thread-item">
+        <div class="thread-num">3</div>
+        <div class="thread-body">
+          <div class="thread-tags">
+            <span class="tag tag-hot">🔥 HOT</span>
+            <span class="tag tag-league">プレミア</span>
+          </div>
+          <div class="thread-title">マンU今シーズンまじで終わってると思う奴の数→</div>
+          <div class="thread-meta">
+            <span>名無し</span><span>💬 15分前</span>
+          </div>
+        </div>
+        <div class="thread-stats">
+          <span class="stat-num">1.2k</span>
+          <span class="stat-label">レス</span>
+        </div>
+      </div>
+
+      <div class="thread-item">
+        <div class="thread-num">4</div>
+        <div class="thread-body">
+          <div class="thread-tags">
+            <span class="tag tag-league">ラ・リーガ</span>
+            <span class="tag tag-team">レアル</span>
+          </div>
+          <div class="thread-title">ムバッペ移籍後の全成績データをまとめてみた【保存版】</div>
+          <div class="thread-meta">
+            <span>名無し</span><span>💬 1時間前</span>
+          </div>
+        </div>
+        <div class="thread-stats">
+          <span class="stat-num">389</span>
+          <span class="stat-label">レス</span>
+        </div>
+      </div>
+
+      <div class="thread-item">
+        <div class="thread-num">5</div>
+        <div class="thread-body">
+          <div class="thread-tags">
+            <span class="tag tag-new">NEW</span>
+            <span class="tag tag-league">代表</span>
+          </div>
+          <div class="thread-title">次のW杯アジア予選メンバー予想スレ — お前らの予想は？</div>
+          <div class="thread-meta">
+            <span>名無し</span><span>💬 3時間前</span>
+          </div>
+        </div>
+        <div class="thread-stats">
+          <span class="stat-num">671</span>
+          <span class="stat-label">レス</span>
+        </div>
+      </div>
+
+      <div class="thread-item">
+        <div class="thread-num">6</div>
+        <div class="thread-body">
+          <div class="thread-tags">
+            <span class="tag tag-league">Jリーグ</span>
+          </div>
+          <div class="thread-title">Jリーグの外国人枠問題について語るスレ Part.8</div>
+          <div class="thread-meta">
+            <span>名無し</span><span>💬 昨日</span>
+          </div>
+        </div>
+        <div class="thread-stats">
+          <span class="stat-num">203</span>
+          <span class="stat-label">レス</span>
+        </div>
+      </div>
+
+      <div class="thread-item">
+        <div class="thread-num">7</div>
+        <div class="thread-body">
+          <div class="thread-tags">
+            <span class="tag tag-hot">🔥 HOT</span>
+            <span class="tag tag-league">CL</span>
+          </div>
+          <div class="thread-title">今季CL ベストゴール投票スレ【動画リンクあり】</div>
+          <div class="thread-meta">
+            <span>名無し</span><span>💬 昨日</span>
+          </div>
+        </div>
+        <div class="thread-stats">
+          <span class="stat-num">517</span>
+          <span class="stat-label">レス</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Call bar -->
+    <div class="call-bar">
+      <div class="call-avatars">
+        <div class="call-av" style="background:#1D9E75;color:#fff">浦</div>
+        <div class="call-av" style="background:#7C3AED;color:#fff">横</div>
+        <div class="call-av" style="background:#F59E0B;color:#000">+4</div>
+      </div>
+      <div class="call-info">
+        <div class="call-title">浦和 vs 横浜FM 実況通話</div>
+        <div class="call-sub">6人が参加中 • 試合実況グループ</div>
+      </div>
+      <div class="call-btns">
+        <button class="btn-start">新規</button>
+        <button class="btn-join">🎙 参加</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Mobile bottom nav -->
+<nav class="mobile-nav">
+  <div class="mobile-nav-item active"><div class="m-icon">🏠</div>ホーム</div>
+  <div class="mobile-nav-item"><div class="m-icon">🔥</div>人気</div>
+  <div class="mobile-nav-item"><div class="m-icon">📡</div>実況</div>
+  <div class="mobile-nav-item"><div class="m-icon">🎙</div>通話</div>
+  <div class="mobile-nav-item"><div class="m-icon">👤</div>マイ板</div>
+</nav>
+
+<!-- Score detail panel -->
+<div class="score-detail" id="scoreDetail">
+  <div class="score-detail-close" onclick="closeScore()">✕</div>
+  <div class="score-big">
+    <div class="teams-row">
+      <span class="team-name">浦和レッズ</span>
+      <div>
+        <div class="scoreline">2 - 1</div>
+        <div class="matchinfo">🇯🇵 Jリーグ 第18節 • 67分経過</div>
+      </div>
+      <span class="team-name">横浜FM</span>
+    </div>
+  </div>
+  <div class="events-list">
+    <div class="event-row"><span class="event-min">12'</span><span class="event-icon">⚽</span><span class="event-text">酒井 宏樹（浦和）</span></div>
+    <div class="event-row"><span class="event-min">38'</span><span class="event-icon">⚽</span><span class="event-text">アンデルソン・ロペス（横浜FM）</span></div>
+    <div class="event-row"><span class="event-min">55'</span><span class="event-icon">🟨</span><span class="event-text">天野 純（横浜FM）イエローカード</span></div>
+    <div class="event-row"><span class="event-min">67'</span><span class="event-icon">⚽</span><span class="event-text">マルティノス（浦和）— ゴール！！</span></div>
+  </div>
+</div>
+
+<script>
+  // Sort tabs
+  document.querySelectorAll('.sort-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.sort-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+    });
+  });
+
+  // Nav items
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      item.classList.add('active');
+    });
+  });
+
+  // Mobile nav
+  document.querySelectorAll('.mobile-nav-item').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.mobile-nav-item').forEach(n => n.classList.remove('active'));
+      item.classList.add('active');
+    });
+  });
+
+  // Score detail panel
+  function openScore() {
+    document.getElementById('scoreDetail').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeScore() {
+    document.getElementById('scoreDetail').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  // Live minute counter
+  let min = 67;
+  setInterval(() => {
+    min++;
+    document.querySelectorAll('.score-min').forEach((el, i) => {
+      if (i === 0) el.textContent = min + "'";
+    });
+  }, 60000);
+</script>
+</body>
+</html>
