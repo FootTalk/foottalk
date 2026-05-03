@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="ja" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FootTalk — サッカー掲示板</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+/* ===== テーマ ===== */
+:root{
+  --green:#00C17C;--green-dim:rgba(0,193,124,.12);
+  --red:#FF3B5C;--red-dim:rgba(255,59,92,.12);
+  --amber:#F59E0B;--purple:#7C3AED;
+  --bg:#0D0F0E;--bg2:#161918;--bg3:#1E2220;
+  --border:#2A2E2C;--text:#F0F2F1;--text2:#8A9490;--text3:#4A524E;
+}
+[data-theme="light"]{
+  --green:#008F5A;--green-dim:rgba(0,143,90,.1);
+  --red:#D92344;--red-dim:rgba(217,35,68,.1);
+  --amber:#B45309;--purple:#5B21B6;
+  --bg:#F4F6F5;--bg2:#FFFFFF;--bg3:#ECEEED;
+  --border:#D8DADA;--text:#0F1110;--text2:#46504C;--text3:#8A9490;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes heartPop{0%,100%{transform:scale(1)}50%{transform:scale(1.45)}}
+
+/* ===== PC レイアウト ===== */
+.app{display:grid;grid-template-columns:240px 1fr;grid-template-rows:56px 1fr;grid-template-areas:"hd hd""sb mn";min-height:100vh}
+
+/* ===== ヘッダー ===== */
+.hd{grid-area:hd;position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:10px;padding:0 18px;background:var(--bg2);border-bottom:1px solid var(--border);height:56px}
+.logo{display:flex;align-items:center;gap:8px;cursor:pointer;text-decoration:none;flex-shrink:0}
+.logo-ball{width:34px;height:34px;background:var(--green);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+.logo-name{font-family:'Bebas Neue',sans-serif;font-size:27px;letter-spacing:1px;color:var(--text);line-height:1}
+.logo-name span{color:var(--green)}
+.hd-search{flex:1;max-width:300px;position:relative}
+.hd-search input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:22px;padding:7px 14px 7px 34px;font-size:13px;color:var(--text);font-family:'Noto Sans JP',sans-serif;outline:none;transition:border-color .15s}
+.hd-search input:focus{border-color:var(--green)}
+.hd-search input::placeholder{color:var(--text3)}
+.hd-search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--text3);pointer-events:none}
+.hd-right{display:flex;align-items:center;gap:8px;margin-left:auto}
+.icon-btn{background:transparent;border:1px solid var(--border);border-radius:8px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:17px;transition:all .15s;color:var(--text2);flex-shrink:0}
+.icon-btn:hover{border-color:var(--green);color:var(--green)}
+.btn-post{background:var(--green);color:#000;font-family:'Noto Sans JP',sans-serif;font-weight:700;font-size:13px;border:none;border-radius:22px;padding:8px 16px;cursor:pointer;white-space:nowrap;transition:filter .15s,transform .1s;flex-shrink:0}
+[data-theme="light"] .btn-post{color:#fff}
+.btn-post:hover{filter:brightness(1.1)}.btn-post:active{transform:scale(.97)}
+@media(max-width:640px){.hd-search{display:none}}
+
+/* ===== サイドバー（PC） ===== */
+.sb{grid-area:sb;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;position:sticky;top:56px;height:calc(100vh - 56px);padding-bottom:20px}
+.sb-sec{padding:14px 0 4px}
+.sb-lbl{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;padding:0 16px 4px}
+.sb-divider{height:1px;background:var(--border);margin:6px 0}
+.sb-item{display:flex;align-items:center;gap:10px;padding:10px 16px;font-size:13px;color:var(--text2);cursor:pointer;border-left:2px solid transparent;transition:all .15s}
+.sb-item:hover{color:var(--text);background:var(--bg3)}
+.sb-item.on{color:var(--green);border-left-color:var(--green);background:var(--green-dim);font-weight:500}
+.sb-icon{font-size:16px;flex-shrink:0;width:22px;text-align:center}
+
+/* ===== メインエリア ===== */
+.mn{grid-area:mn;display:flex;flex-direction:column;min-height:calc(100vh - 56px)}
+
+/* ===== ツールバー ===== */
+.toolbar{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--border);gap:10px;flex-wrap:wrap;flex-shrink:0}
+.toolbar-title{font-family:'Bebas Neue',sans-serif;font-size:23px;letter-spacing:.5px;color:var(--text)}
+.sort-tabs{display:flex;gap:5px}
+.sort-tab{font-size:12px;padding:5px 14px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-family:'Noto Sans JP',sans-serif;transition:all .15s}
+.sort-tab.on,.sort-tab:hover{background:var(--green-dim);color:var(--green);border-color:var(--green)}
+
+/* ===== スレ一覧 ===== */
+.thread-list{flex:1;overflow-y:auto}
+.thread-row{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;position:relative;animation:fadeUp .22s ease both}
+.thread-row:hover{background:var(--bg2)}
+.thread-no{font-size:11px;color:var(--text3);min-width:24px;padding-top:2px;text-align:right;flex-shrink:0}
+.thread-body{flex:1;min-width:0;padding-right:30px}
+.thread-tags{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:5px}
+.tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:7px;white-space:nowrap}
+.tag-hot{background:rgba(245,158,11,.15);color:var(--amber)}
+.tag-lg{background:var(--green-dim);color:var(--green)}
+.tag-team{background:rgba(124,58,237,.15);color:var(--purple)}
+.tag-new{background:rgba(14,165,233,.15);color:#38BDF8}
+.tag-fav{background:rgba(245,158,11,.15);color:var(--amber)}
+.tag-cl{background:rgba(202,138,4,.15);color:#B45309}
+.tag-ntl{background:rgba(239,68,68,.15);color:#DC2626}
+.thread-title{font-size:14px;font-weight:500;color:var(--text);margin-bottom:5px;line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.thread-meta{font-size:11px;color:var(--text3);display:flex;gap:10px}
+.thread-stat{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;gap:2px;min-width:46px;flex-shrink:0}
+.stat-n{font-size:15px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums}
+.stat-l{font-size:10px;color:var(--text3)}
+.fav-btn{position:absolute;top:13px;right:16px;background:none;border:none;font-size:17px;cursor:pointer;opacity:.3;transition:opacity .15s;line-height:1;padding:2px}
+.fav-btn:hover,.fav-btn.on{opacity:1}
+
+/* ===== ステート ===== */
+.state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:64px 20px;gap:12px;color:var(--text3)}
+.state-ico{font-size:40px}
+.state-msg{font-size:14px;text-align:center}
+
+/* ===== モーダル ===== */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(3px)}
+.overlay.hide{display:none}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:16px;width:100%;max-width:500px;padding:24px;max-height:92vh;overflow-y:auto}
+.modal-title{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.5px;margin-bottom:20px;color:var(--text)}
+.fg{margin-bottom:14px}
+.flabel{font-size:12px;color:var(--text2);margin-bottom:5px;display:block;font-weight:500}
+.finput,.fselect,.ftextarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;color:var(--text);font-family:'Noto Sans JP',sans-serif;outline:none;transition:border-color .15s}
+.finput:focus,.fselect:focus,.ftextarea:focus{border-color:var(--green)}
+.fselect option,.fselect optgroup{background:var(--bg2)}
+.ftextarea{resize:vertical;min-height:80px}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.modal-btns{display:flex;gap:10px;margin-top:20px}
+.btn-cancel{flex:1;padding:10px;background:transparent;border:1px solid var(--border);border-radius:22px;color:var(--text2);cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:14px;transition:all .15s}
+.btn-cancel:hover{border-color:var(--text);color:var(--text)}
+.btn-ok{flex:2;padding:10px;background:var(--green);border:none;border-radius:22px;color:#000;font-weight:700;cursor:pointer;font-family:'Noto Sans JP',sans-serif;font-size:14px;transition:filter .15s}
+[data-theme="light"] .btn-ok{color:#fff}
+.btn-ok:hover{filter:brightness(1.1)}.btn-ok:disabled{background:var(--border);color:var(--text3);cursor:not-allowed}
+
+/* ===== 画像アップ ===== */
+.img-area{border:1.5px dashed var(--border);border-radius:8px;padding:14px;text-align:center;cursor:pointer;transition:border-color .15s}
+.img-area:hover{border-color:var(--green)}.img-area input{display:none}
+.img-area-lbl{font-size:13px;color:var(--text3)}
+.img-previews{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.img-thumb{position:relative;width:78px;height:78px}
+.img-thumb img{width:100%;height:100%;object-fit:cover;border-radius:7px;border:1px solid var(--border)}
+.img-rm{position:absolute;top:-5px;right:-5px;background:var(--red);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+
+/* ===== スレ詳細 ===== */
+.detail{display:none;flex-direction:column;flex:1}.detail.show{display:flex}
+.detail-hd{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0}
+.back-btn{background:transparent;border:1px solid var(--border);border-radius:22px;color:var(--text2);font-size:13px;padding:6px 14px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;white-space:nowrap;transition:all .15s;flex-shrink:0;margin-top:1px}
+.back-btn:hover{border-color:var(--green);color:var(--green)}
+.detail-title{font-size:15px;font-weight:500;color:var(--text);line-height:1.5;margin-bottom:3px}
+.detail-meta{font-size:11px;color:var(--text3)}
+.posts{flex:1;overflow-y:auto}
+.post-row{display:flex;gap:10px;padding:13px 18px;border-bottom:1px solid var(--border);animation:fadeUp .18s ease both}
+.post-no{font-size:11px;color:var(--text3);min-width:28px;padding-top:1px;text-align:right;flex-shrink:0}
+.post-body{flex:1;min-width:0}
+.post-name{font-size:11px;color:var(--green);font-weight:500;margin-bottom:3px}
+.post-text{font-size:14px;color:var(--text);line-height:1.65;white-space:pre-wrap;word-break:break-word}
+.post-imgs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.post-imgs img{max-width:220px;max-height:190px;border-radius:8px;border:1px solid var(--border);cursor:pointer;object-fit:cover;transition:opacity .15s}
+.post-imgs img:hover{opacity:.82}
+.post-foot{display:flex;align-items:center;gap:14px;margin-top:7px}
+.post-time{font-size:11px;color:var(--text3)}
+.like-btn{display:flex;align-items:center;gap:4px;background:none;border:none;cursor:pointer;font-size:12px;color:var(--text3);padding:0;font-family:'Noto Sans JP',sans-serif;transition:color .15s}
+.like-btn:hover,.like-btn.on{color:var(--red)}
+.like-ico{font-size:15px;display:inline-block}.like-btn.on .like-ico{animation:heartPop .3s ease}
+
+/* ===== 返信バー ===== */
+.reply-bar{flex-shrink:0;padding:12px 18px;border-top:1px solid var(--border);background:var(--bg2)}
+.reply-row{display:flex;gap:8px;align-items:flex-end}
+.reply-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:10px 13px;font-size:14px;color:var(--text);font-family:'Noto Sans JP',sans-serif;resize:none;min-height:44px;max-height:130px;outline:none;transition:border-color .15s;line-height:1.5}
+.reply-input:focus{border-color:var(--green)}
+.reply-img-btn{background:transparent;border:1px solid var(--border);border-radius:9px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:17px;flex-shrink:0;transition:border-color .15s}
+.reply-img-btn:hover{border-color:var(--green)}.reply-img-btn input{display:none}
+.reply-send{background:var(--green);border:none;border-radius:10px;padding:10px 18px;color:#000;font-weight:700;font-size:13px;cursor:pointer;font-family:'Noto Sans JP',sans-serif;white-space:nowrap;flex-shrink:0;transition:filter .15s}
+[data-theme="light"] .reply-send{color:#fff}
+.reply-send:hover{filter:brightness(1.1)}.reply-send:disabled{background:var(--border);color:var(--text3);cursor:not-allowed}
+.reply-previews{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.reply-thumb{position:relative;width:58px;height:58px}
+.reply-thumb img{width:100%;height:100%;object-fit:cover;border-radius:7px;border:1px solid var(--border)}
+.reply-thumb .rm{position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+
+/* ===== ライトボックス ===== */
+.lightbox{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:500;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.lightbox.hide{display:none}
+.lightbox img{max-width:92vw;max-height:92vh;border-radius:8px;object-fit:contain}
+
+/* ===== 通知バナー ===== */
+.notif-bar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--green-dim);border-bottom:1px solid var(--green);font-size:13px;color:var(--text);flex-shrink:0}
+.notif-bar.hide{display:none}
+.notif-bar .allow{margin-left:auto;background:var(--green);border:none;border-radius:8px;padding:5px 13px;font-size:12px;font-weight:700;cursor:pointer;color:#000;font-family:'Noto Sans JP',sans-serif;flex-shrink:0}
+[data-theme="light"] .notif-bar .allow{color:#fff}
+.notif-bar .dismiss{background:transparent;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:0;flex-shrink:0}
+
+/* ===== ハイライト ===== */
+.hl{background:rgba(0,193,124,.25);border-radius:2px}
+
+/* ===== モバイル ===== */
+@media(max-width:768px){
+  .app{grid-template-columns:1fr;grid-template-rows:56px 1fr;grid-template-areas:"hd""mn"}
+  .sb{display:none}
+  .mn{min-height:calc(100vh - 56px - 62px)}
+  .mobile-nav{display:flex!important}
+  .thread-list,.posts{padding-bottom:70px}
+}
+.mobile-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);padding:8px 0 max(8px,env(safe-area-inset-bottom));z-index:200;justify-content:space-around;align-items:center}
+.mn-item{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:var(--text3);cursor:pointer;padding:3px 12px;transition:color .15s;border:none;background:none}
+.mn-item.on{color:var(--green)}.mn-ico{font-size:22px;line-height:1.2}
+
+/* ===== リーグドロワー ===== */
+.drawer-bg{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:250;backdrop-filter:blur(2px)}
+.drawer-bg.hide{display:none}
+.drawer{position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-radius:18px 18px 0 0;z-index:260;max-height:78vh;overflow-y:auto;padding-bottom:max(24px,env(safe-area-inset-bottom));transform:translateY(0);transition:transform .25s cubic-bezier(.32,0,.67,0)}
+.drawer.hide{transform:translateY(110%)}
+.drawer-handle{width:38px;height:4px;background:var(--border);border-radius:2px;margin:12px auto 6px}
+.drawer-ttl{font-family:'Bebas Neue',sans-serif;font-size:20px;padding:6px 18px 12px;color:var(--text);letter-spacing:.5px}
+.drawer-lbl{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.1em;text-transform:uppercase;padding:4px 18px 2px;margin-top:4px}
+.drawer-item{display:flex;align-items:center;gap:13px;padding:14px 18px;font-size:14px;color:var(--text2);cursor:pointer;border-bottom:.5px solid var(--border);transition:background .12s}
+.drawer-item:active,.drawer-item:hover{background:var(--bg3);color:var(--text)}
+.drawer-item.on{color:var(--green);font-weight:500}
+.d-ico{font-size:18px;width:26px;text-align:center;flex-shrink:0}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ヘッダー -->
+  <header class="hd">
+    <a class="logo" onclick="gotoHome()">
+      <div class="logo-ball">⚽</div>
+      <span class="logo-name">FOOT<span>TALK</span></span>
+    </a>
+    <div class="hd-search">
+      <span class="hd-search-icon">🔍</span>
+      <input id="searchInput" placeholder="スレを検索..." oninput="doSearch(this.value)" autocomplete="off">
+    </div>
+    <div class="hd-right">
+      <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="テーマ">🌙</button>
+      <button class="icon-btn" onclick="filterBy('fav')" title="お気に入り">⭐</button>
+      <button class="icon-btn" onclick="askNotif()" title="通知">🔔</button>
+      <button class="btn-post" onclick="openNewModal()">＋ スレを立てる</button>
+    </div>
+  </header>
+
+  <!-- サイドバー（PCのみ） -->
+  <aside class="sb" id="sidebar">
+    <div class="sb-sec">
+      <div class="sb-lbl">メニュー</div>
+      <div class="sb-item on" id="sb-all" onclick="filterBy('')"><span class="sb-icon">🏠</span>すべて</div>
+      <div class="sb-item" id="sb-hot" onclick="filterBy('hot')"><span class="sb-icon">🔥</span>人気スレ</div>
+      <div class="sb-item" id="sb-fav" onclick="filterBy('fav')"><span class="sb-icon">⭐</span>お気に入り</div>
+    </div>
+    <div class="sb-divider"></div>
+    <div class="sb-sec">
+      <div class="sb-lbl">国内リーグ</div>
+      <div class="sb-item" id="sb-j" onclick="filterBy('Jリーグ')"><span class="sb-icon">🇯🇵</span>Jリーグ</div>
+    </div>
+    <div class="sb-divider"></div>
+    <div class="sb-sec">
+      <div class="sb-lbl">海外リーグ</div>
+      <div class="sb-item" id="sb-pl" onclick="filterBy('プレミアリーグ')"><span class="sb-icon">🏴󠁧󠁢󠁥󠁮󠁧󠁿</span>プレミアリーグ</div>
+      <div class="sb-item" id="sb-ll" onclick="filterBy('ラ・リーガ')"><span class="sb-icon">🇪🇸</span>ラ・リーガ</div>
+      <div class="sb-item" id="sb-bl" onclick="filterBy('ブンデスリーガ')"><span class="sb-icon">🇩🇪</span>ブンデスリーガ</div>
+      <div class="sb-item" id="sb-sa" onclick="filterBy('セリエA')"><span class="sb-icon">🇮🇹</span>セリエA</div>
+    </div>
+    <div class="sb-divider"></div>
+    <div class="sb-sec">
+      <div class="sb-lbl">代表・カップ戦</div>
+      <div class="sb-item" id="sb-jp" onclick="filterBy('日本代表')"><span class="sb-icon">🔴</span>日本代表</div>
+      <div class="sb-item" id="sb-wr" onclick="filterBy('海外代表')"><span class="sb-icon">🌍</span>海外代表</div>
+      <div class="sb-item" id="sb-cl" onclick="filterBy('チャンピオンズリーグ')"><span class="sb-icon">🏆</span>CL</div>
+      <div class="sb-item" id="sb-wc" onclick="filterBy('ワールドカップ')"><span class="sb-icon">🌐</span>ワールドカップ</div>
+    </div>
+  </aside>
+
+  <!-- メイン -->
+  <main class="mn" id="main">
+
+    <!-- 通知バナー -->
+    <div class="notif-bar hide" id="notifBar">
+      <span>🔔 新着レスをプッシュ通知で受け取りますか？</span>
+      <button class="allow" onclick="askNotif()">許可する</button>
+      <button class="dismiss" onclick="hideNotifBar()">✕</button>
+    </div>
+
+    <!-- スレ一覧 -->
+    <div id="listView" style="display:flex;flex-direction:column;flex:1">
+      <div class="toolbar">
+        <div class="toolbar-title" id="boardTitle">全板</div>
+        <div class="sort-tabs">
+          <button class="sort-tab on" onclick="setSort('new',this)">新着</button>
+          <button class="sort-tab" onclick="setSort('hot',this)">人気</button>
+        </div>
+      </div>
+      <div class="thread-list" id="threadList">
+        <div class="state"><div class="state-ico">⚽</div><div class="state-msg">読み込み中...</div></div>
+      </div>
+    </div>
+
+    <!-- スレ詳細 -->
+    <div class="detail" id="detailView">
+      <div class="detail-hd">
+        <button class="back-btn" onclick="backToList()">← 戻る</button>
+        <div>
+          <div class="detail-title" id="detailTitle"></div>
+          <div class="detail-meta" id="detailMeta"></div>
+        </div>
+      </div>
+      <div class="posts" id="postList"></div>
+      <div class="reply-bar">
+        <div class="reply-row">
+          <textarea class="reply-input" id="replyTxt" placeholder="返信を入力… (Enterで送信、Shift+Enterで改行)" rows="1" oninput="autoH(this)"></textarea>
+          <label class="reply-img-btn" title="画像添付">📷<input type="file" accept="image/*" multiple onchange="addReplyImgs(this)"></label>
+          <button class="reply-send" id="replyBtn" onclick="sendReply()">送信</button>
+        </div>
+        <div class="reply-previews" id="replyPreviews"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- モバイルナビ -->
+<nav class="mobile-nav" id="mobileNav">
+  <button class="mn-item on" id="mn-home" onclick="mnClick('home')"><div class="mn-ico">🏠</div>ホーム</button>
+  <button class="mn-item" id="mn-hot" onclick="mnClick('hot')"><div class="mn-ico">🔥</div>人気</button>
+  <button class="mn-item" onclick="openNewModal()"><div class="mn-ico">✏️</div>投稿</button>
+  <button class="mn-item" id="mn-league" onclick="openDrawer()"><div class="mn-ico">🏆</div>リーグ</button>
+  <button class="mn-item" id="mn-fav" onclick="mnClick('fav')"><div class="mn-ico">⭐</div>お気に入り</button>
+</nav>
+
+<!-- リーグドロワー（モバイル） -->
+<div class="drawer-bg hide" id="drawerBg" onclick="closeDrawer()"></div>
+<div class="drawer hide" id="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-ttl">板・リーグを選ぶ</div>
+  <div class="drawer-lbl">メニュー</div>
+  <div class="drawer-item" onclick="drawerPick('')"><span class="d-ico">🏠</span>すべて</div>
+  <div class="drawer-item" onclick="drawerPick('hot')"><span class="d-ico">🔥</span>人気スレ</div>
+  <div class="drawer-item" onclick="drawerPick('fav')"><span class="d-ico">⭐</span>お気に入り</div>
+  <div class="drawer-lbl">国内リーグ</div>
+  <div class="drawer-item" onclick="drawerPick('Jリーグ')"><span class="d-ico">🇯🇵</span>Jリーグ</div>
+  <div class="drawer-lbl">海外リーグ</div>
+  <div class="drawer-item" onclick="drawerPick('プレミアリーグ')"><span class="d-ico">🏴󠁧󠁢󠁥󠁮󠁧󠁿</span>プレミアリーグ</div>
+  <div class="drawer-item" onclick="drawerPick('ラ・リーガ')"><span class="d-ico">🇪🇸</span>ラ・リーガ</div>
+  <div class="drawer-item" onclick="drawerPick('ブンデスリーガ')"><span class="d-ico">🇩🇪</span>ブンデスリーガ</div>
+  <div class="drawer-item" onclick="drawerPick('セリエA')"><span class="d-ico">🇮🇹</span>セリエA</div>
+  <div class="drawer-lbl">代表・カップ戦</div>
+  <div class="drawer-item" onclick="drawerPick('日本代表')"><span class="d-ico">🔴</span>日本代表</div>
+  <div class="drawer-item" onclick="drawerPick('海外代表')"><span class="d-ico">🌍</span>海外代表</div>
+  <div class="drawer-item" onclick="drawerPick('チャンピオンズリーグ')"><span class="d-ico">🏆</span>CL（チャンピオンズL）</div>
+  <div class="drawer-item" onclick="drawerPick('ワールドカップ')"><span class="d-ico">🌐</span>ワールドカップ</div>
+</div>
+
+<!-- 新規スレモーダル -->
+<div class="overlay hide" id="newModal" onclick="modalBgClick(event)">
+  <div class="modal">
+    <div class="modal-title">スレを立てる</div>
+    <div class="fg">
+      <label class="flabel">タイトル *</label>
+      <input class="finput" id="newTitle" placeholder="スレのタイトルを入力..." maxlength="100">
+    </div>
+    <div class="frow">
+      <div class="fg">
+        <label class="flabel">板・リーグ</label>
+        <select class="fselect" id="newLeague">
+          <option value="">選択なし</option>
+          <optgroup label="国内"><option>Jリーグ</option></optgroup>
+          <optgroup label="海外リーグ">
+            <option>プレミアリーグ</option><option>ラ・リーガ</option>
+            <option>ブンデスリーガ</option><option>セリエA</option>
+          </optgroup>
+          <optgroup label="代表・カップ戦">
+            <option>日本代表</option><option>海外代表</option>
+            <option>チャンピオンズリーグ</option><option>ワールドカップ</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="flabel">チーム（任意）</label>
+        <input class="finput" id="newTeam" placeholder="例: 浦和レッズ">
+      </div>
+    </div>
+    <div class="fg">
+      <label class="flabel">最初のコメント（任意）</label>
+      <textarea class="ftextarea" id="newContent" placeholder="スレの内容を入力..."></textarea>
+    </div>
+    <div class="fg">
+      <label class="flabel">画像（最大4枚）</label>
+      <div class="img-area" onclick="document.getElementById('newImgs').click()">
+        <input type="file" id="newImgs" accept="image/*" multiple onchange="addNewImgs(this)">
+        <div class="img-area-lbl">📷 クリックして画像を選択</div>
+      </div>
+      <div class="img-previews" id="newImgPreviews"></div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeNewModal()">キャンセル</button>
+      <button class="btn-ok" id="newSubmitBtn" onclick="submitNewThread()">スレを立てる</button>
+    </div>
+  </div>
+</div>
+
+<!-- ライトボックス -->
+<div class="lightbox hide" id="lightbox" onclick="closeLightbox()">
+  <img id="lightboxImg" src="" alt="">
+</div>
+
+<!-- トースト -->
+<div id="toast" style="position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--green);color:#000;font-weight:700;font-size:13px;padding:10px 22px;border-radius:22px;z-index:400;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.3)"></div>
+
+<script>
+/* ==============================
+   設定
+============================== */
+const SB_URL='https://jvwknomuppgzqrkvwern.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2d2tub211cHBnenFya3Z3ZXJuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc3MjIzMzksImV4cCI6MjA5MzI5ODMzOX0.9Z_HkcWy1eI7VM0xlVCzL7XoNKiygbNT9oJ5qOgQCOs';
+const {createClient}=supabase;
+const db=createClient(SB_URL,SB_KEY);
+
+const TITLES={'':'全板','hot':'人気スレ','fav':'お気に入り','Jリーグ':'Jリーグ板','プレミアリーグ':'プレミア板','ラ・リーガ':'ラ・リーガ板','ブンデスリーガ':'ブンデス板','セリエA':'セリエA板','日本代表':'日本代表板','海外代表':'海外代表板','チャンピオンズリーグ':'CL板','ワールドカップ':'W杯板'};
+
+/* ==============================
+   状態
+============================== */
+let threads=[], currentFilter='', currentSort='new', currentThread=null, rtSub=null;
+let searchQ='', newImgURLs=[], replyImgURLs=[];
+let favs=JSON.parse(localStorage.getItem('ft_favs')||'[]');
+let likes=JSON.parse(localStorage.getItem('ft_likes')||'{}');
+
+/* ==============================
+   テーマ
+============================== */
+function toggleTheme(){
+  const d=document.documentElement;
+  const dark=d.dataset.theme==='dark';
+  d.dataset.theme=dark?'light':'dark';
+  document.getElementById('themeBtn').textContent=dark?'☀️':'🌙';
+  localStorage.setItem('ft_theme',dark?'light':'dark');
+}
+(()=>{
+  const t=localStorage.getItem('ft_theme')||'dark';
+  document.documentElement.dataset.theme=t;
+  document.getElementById('themeBtn').textContent=t==='dark'?'🌙':'☀️';
+})();
+
+/* ==============================
+   通知
+============================== */
+function askNotif(){
+  if(!('Notification' in window)){toast('このブラウザは通知非対応です');return;}
+  Notification.requestPermission().then(p=>{
+    if(p==='granted'){toast('通知を許可しました！');hideNotifBar();localStorage.setItem('ft_notif','ok');}
+    else toast('通知が拒否されました');
+  });
+}
+function hideNotifBar(){document.getElementById('notifBar').classList.add('hide');localStorage.setItem('ft_notif','no');}
+function pushNotif(title,body){if(Notification.permission==='granted')new Notification('⚽ FootTalk',{body:`${title}: ${body}`});}
+setTimeout(()=>{if(!localStorage.getItem('ft_notif'))document.getElementById('notifBar').classList.remove('hide');},3000);
+
+/* ==============================
+   スレッド読み込み
+============================== */
+async function loadThreads(){
+  const {data,error}=await db.from('threads').select('*').order('created_at',{ascending:false});
+  if(error){
+    document.getElementById('threadList').innerHTML='<div class="state"><div class="state-ico">⚠️</div><div class="state-msg">読み込みに失敗しました<br>ページを再読み込みしてください</div></div>';
+    return;
+  }
+  threads=data||[];
+  renderThreads();
+}
+
+function subscribeThreads(){
+  if(rtSub)db.removeChannel(rtSub);
+  rtSub=db.channel('t-ch').on('postgres_changes',{event:'*',schema:'public',table:'threads'},()=>loadThreads()).subscribe();
+}
+
+/* ==============================
+   スレ描画
+============================== */
+function renderThreads(){
+  let list=[...threads];
+  if(searchQ) list=list.filter(t=>t.title.includes(searchQ)||(t.league||'').includes(searchQ)||(t.team||'').includes(searchQ));
+  if(currentFilter==='fav') list=list.filter(t=>favs.includes(t.id));
+  else if(currentFilter&&currentFilter!=='hot') list=list.filter(t=>t.league===currentFilter);
+  if(currentFilter==='hot'||currentSort==='hot') list.sort((a,b)=>b.reply_count-a.reply_count);
+
+  if(!list.length){
+    document.getElementById('threadList').innerHTML='<div class="state"><div class="state-ico">⚽</div><div class="state-msg">'+(searchQ?'該当するスレが見つかりません':'まだスレがありません<br>最初のスレを立ててみよう！')+'</div></div>';
+    return;
+  }
+  document.getElementById('threadList').innerHTML=list.map((t,i)=>{
+    const isFav=favs.includes(t.id);
+    let titleHtml=searchQ?esc(t.title).replace(new RegExp(escRe(searchQ),'gi'),m=>`<span class="hl">${m}</span>`):esc(t.title);
+    return `<div class="thread-row" onclick="openThread('${t.id}')" style="animation-delay:${Math.min(i*.035,.4)}s">
+      <div class="thread-no">${i+1}</div>
+      <div class="thread-body">
+        <div class="thread-tags">${buildTags(t)}</div>
+        <div class="thread-title">${titleHtml}</div>
+        <div class="thread-meta"><span>名無し</span><span>${ago(t.created_at)}</span></div>
+      </div>
+      <div class="thread-stat"><span class="stat-n">${t.reply_count||0}</span><span class="stat-l">レス</span></div>
+      <button class="fav-btn${isFav?' on':''}" onclick="toggleFav(event,'${t.id}')" title="${isFav?'解除':'お気に入り'}">${isFav?'⭐':'☆'}</button>
+    </div>`;
+  }).join('');
+}
+
+function buildTags(t){
+  let s='';
+  if(favs.includes(t.id)) s+='<span class="tag tag-fav">⭐</span>';
+  if((t.reply_count||0)>100) s+='<span class="tag tag-hot">🔥 HOT</span>';
+  if(t.league==='チャンピオンズリーグ') s+='<span class="tag tag-cl">🏆 CL</span>';
+  else if(['日本代表','海外代表','ワールドカップ'].includes(t.league)) s+=`<span class="tag tag-ntl">🌍 ${esc(t.league)}</span>`;
+  else if(t.league) s+=`<span class="tag tag-lg">${esc(t.league)}</span>`;
+  if(t.team) s+=`<span class="tag tag-team">${esc(t.team)}</span>`;
+  if((Date.now()-new Date(t.created_at))/60000<60) s+='<span class="tag tag-new">NEW</span>';
+  return s||'<span class="tag tag-lg">雑談</span>';
+}
+
+/* ==============================
+   フィルタ・ソート
+============================== */
+function filterBy(f){
+  currentFilter=f; searchQ='';
+  const si=document.getElementById('searchInput');if(si)si.value='';
+  document.getElementById('boardTitle').textContent=TITLES[f]||f+'板';
+  // サイドバーのアクティブ切替
+  document.querySelectorAll('.sb-item').forEach(el=>el.classList.remove('on'));
+  const map={'':'sb-all','hot':'sb-hot','fav':'sb-fav','Jリーグ':'sb-j','プレミアリーグ':'sb-pl','ラ・リーガ':'sb-ll','ブンデスリーガ':'sb-bl','セリエA':'sb-sa','日本代表':'sb-jp','海外代表':'sb-wr','チャンピオンズリーグ':'sb-cl','ワールドカップ':'sb-wc'};
+  if(map[f]) document.getElementById(map[f])?.classList.add('on');
+  backToList();
+  renderThreads();
+}
+function setSort(s,el){
+  currentSort=s;
+  document.querySelectorAll('.sort-tab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  renderThreads();
+}
+function doSearch(q){
+  searchQ=q.trim();
+  document.getElementById('boardTitle').textContent=q?`「${q}」の検索結果`:(TITLES[currentFilter]||currentFilter+'板'||'全板');
+  renderThreads();
+}
+
+/* ==============================
+   お気に入り
+============================== */
+function toggleFav(e,id){
+  e.stopPropagation();
+  const i=favs.indexOf(id);
+  if(i>=0) favs.splice(i,1); else favs.push(id);
+  localStorage.setItem('ft_favs',JSON.stringify(favs));
+  renderThreads();
+  toast(i>=0?'お気に入りを解除しました':'⭐ お気に入りに追加しました');
+}
+
+/* ==============================
+   スレ詳細
+============================== */
+async function openThread(id){
+  currentThread=threads.find(t=>t.id===id);
+  if(!currentThread) return;
+
+  document.getElementById('detailTitle').textContent=currentThread.title;
+  document.getElementById('detailMeta').textContent=`${currentThread.league||'雑談'} | ${currentThread.reply_count||0}レス | ${ago(currentThread.created_at)}`;
+
+  document.getElementById('listView').style.display='none';
+  document.getElementById('detailView').classList.add('show');
+  document.getElementById('postList').innerHTML='<div class="state"><div class="state-msg">読み込み中...</div></div>';
+  replyImgURLs=[];
+  document.getElementById('replyPreviews').innerHTML='';
+  document.getElementById('replyTxt').value='';
+  document.getElementById('replyTxt').style.height='auto';
+
+  const {data,error}=await db.from('posts').select('*').eq('thread_id',id).order('created_at',{ascending:true});
+  if(error){document.getElementById('postList').innerHTML='<div class="state"><div class="state-msg">読み込みに失敗しました</div></div>';return;}
+  renderPosts(data||[]);
+
+  if(rtSub) db.removeChannel(rtSub);
+  rtSub=db.channel('p-'+id)
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'posts',filter:`thread_id=eq.${id}`},p=>{
+      appendPost(p.new, document.querySelectorAll('.post-row').length+1);
+      scrollPostsBottom();
+      pushNotif(currentThread.title,'新しいレスが届きました');
+    }).subscribe();
+}
+
+function renderPosts(posts){
+  if(!posts.length){
+    document.getElementById('postList').innerHTML='<div class="state"><div class="state-ico">💬</div><div class="state-msg">最初のレスを投稿しよう！</div></div>';
+    return;
+  }
+  document.getElementById('postList').innerHTML=posts.map((p,i)=>postHTML(p,i+1)).join('');
+  scrollPostsBottom();
+}
+
+function appendPost(p, n){
+  document.querySelector('#postList .state')?.remove();
+  const d=document.createElement('div');
+  d.innerHTML=postHTML(p,n);
+  document.getElementById('postList').appendChild(d.firstElementChild);
+}
+
+function postHTML(p,n){
+  const imgs=p.images&&p.images.length
+    ?`<div class="post-imgs">${p.images.map(u=>`<img src="${u}" alt="添付画像" onclick="openLightbox('${u}')" loading="lazy">`).join('')}</div>`:'';
+  const liked=!!likes[`l_${p.id}`];
+  const cnt=likes[`c_${p.id}`]||0;
+  return `<div class="post-row" style="animation-delay:${Math.min(n*.025,.5)}s">
+    <div class="post-no">${n}</div>
+    <div class="post-body">
+      <div class="post-name">名無しさん</div>
+      <div class="post-text">${esc(p.content)}</div>
+      ${imgs}
+      <div class="post-foot">
+        <span class="post-time">${ago(p.created_at)}</span>
+        <button class="like-btn${liked?' on':''}" onclick="toggleLike('${p.id}',this)">
+          <span class="like-ico">${liked?'❤️':'🤍'}</span>
+          <span class="like-cnt">${cnt}</span>
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function scrollPostsBottom(){
+  const el=document.getElementById('postList');
+  if(el) el.scrollTop=el.scrollHeight;
+}
+
+function backToList(){
+  currentThread=null;
+  document.getElementById('listView').style.display='flex';
+  document.getElementById('detailView').classList.remove('show');
+  if(rtSub) db.removeChannel(rtSub);
+  subscribeThreads();
+  loadThreads();
+}
+
+function gotoHome(){
+  filterBy('');
+}
+
+/* ==============================
+   いいね
+============================== */
+function toggleLike(id,btn){
+  const lk=`l_${id}`, ck=`c_${id}`;
+  const on=!!likes[lk];
+  likes[lk]=on?0:1;
+  likes[ck]=Math.max(0,(likes[ck]||0)+(on?-1:1));
+  localStorage.setItem('ft_likes',JSON.stringify(likes));
+  btn.classList.toggle('on',!on);
+  btn.querySelector('.like-ico').textContent=on?'🤍':'❤️';
+  btn.querySelector('.like-cnt').textContent=likes[ck];
+}
+
+/* ==============================
+   新規スレ投稿
+============================== */
+function openNewModal(){
+  document.getElementById('newModal').classList.remove('hide');
+  setTimeout(()=>document.getElementById('newTitle').focus(),50);
+}
+function closeNewModal(){
+  document.getElementById('newModal').classList.add('hide');
+  document.getElementById('newTitle').value='';
+  document.getElementById('newTeam').value='';
+  document.getElementById('newContent').value='';
+  document.getElementById('newLeague').value='';
+  document.getElementById('newImgPreviews').innerHTML='';
+  newImgURLs=[];
+}
+function modalBgClick(e){if(e.target===document.getElementById('newModal'))closeNewModal();}
+
+async function submitNewThread(){
+  const title=document.getElementById('newTitle').value.trim();
+  const league=document.getElementById('newLeague').value;
+  const team=document.getElementById('newTeam').value.trim();
+  const content=document.getElementById('newContent').value.trim();
+  if(!title){toast('タイトルを入力してください');return;}
+
+  const btn=document.getElementById('newSubmitBtn');
+  btn.disabled=true; btn.textContent='投稿中...';
+
+  const {data,error}=await db.from('threads').insert([{title,league,team}]).select().single();
+  if(error){toast('エラーが発生しました');btn.disabled=false;btn.textContent='スレを立てる';return;}
+
+  if((content||newImgURLs.length)&&data){
+    await db.from('posts').insert([{thread_id:data.id,content:content||'',images:newImgURLs}]);
+    await db.from('threads').update({reply_count:1}).eq('id',data.id);
+  }
+
+  closeNewModal();
+  toast('スレを立てました！');
+  btn.disabled=false; btn.textContent='スレを立てる';
+  await loadThreads();
+}
+
+/* ==============================
+   返信投稿
+============================== */
+async function sendReply(){
+  if(!currentThread) return;
+  const content=document.getElementById('replyTxt').value.trim();
+  if(!content&&!replyImgURLs.length) return;
+
+  const btn=document.getElementById('replyBtn');
+  btn.disabled=true;
+
+  const {error}=await db.from('posts').insert([{thread_id:currentThread.id,content:content||'',images:replyImgURLs}]);
+  if(!error){
+    const nc=(currentThread.reply_count||0)+1;
+    await db.from('threads').update({reply_count:nc}).eq('id',currentThread.id);
+    currentThread.reply_count=nc;
+    document.getElementById('replyTxt').value='';
+    document.getElementById('replyTxt').style.height='auto';
+    replyImgURLs=[];
+    document.getElementById('replyPreviews').innerHTML='';
+  } else {
+    toast('送信に失敗しました');
+  }
+  btn.disabled=false;
+}
+
+document.getElementById('replyTxt').addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendReply();}
+});
+
+/* ==============================
+   画像
+============================== */
+function addNewImgs(inp){
+  const files=Array.from(inp.files).slice(0,4-newImgURLs.length);
+  files.forEach(f=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      const url=e.target.result;
+      const idx=newImgURLs.push(url)-1;
+      document.getElementById('newImgPreviews').insertAdjacentHTML('beforeend',
+        `<div class="img-thumb" id="ni${idx}"><img src="${url}" alt=""><button class="img-rm" onclick="rmNewImg(${idx})">✕</button></div>`);
+    };r.readAsDataURL(f);
+  });
+}
+function rmNewImg(i){
+  newImgURLs.splice(i,1);
+  const w=document.getElementById('newImgPreviews'); w.innerHTML='';
+  newImgURLs.forEach((u,j)=>w.insertAdjacentHTML('beforeend',`<div class="img-thumb"><img src="${u}" alt=""><button class="img-rm" onclick="rmNewImg(${j})">✕</button></div>`));
+}
+
+function addReplyImgs(inp){
+  const files=Array.from(inp.files).slice(0,4-replyImgURLs.length);
+  files.forEach(f=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      const url=e.target.result;
+      const idx=replyImgURLs.push(url)-1;
+      document.getElementById('replyPreviews').insertAdjacentHTML('beforeend',
+        `<div class="reply-thumb" id="ri${idx}"><img src="${url}" alt=""><button class="rm" onclick="rmReplyImg(${idx})">✕</button></div>`);
+    };r.readAsDataURL(f);
+  });
+}
+function rmReplyImg(i){
+  replyImgURLs.splice(i,1);
+  const w=document.getElementById('replyPreviews'); w.innerHTML='';
+  replyImgURLs.forEach((u,j)=>w.insertAdjacentHTML('beforeend',`<div class="reply-thumb"><img src="${u}" alt=""><button class="rm" onclick="rmReplyImg(${j})">✕</button></div>`));
+}
+
+function openLightbox(url){document.getElementById('lightboxImg').src=url;document.getElementById('lightbox').classList.remove('hide');}
+function closeLightbox(){document.getElementById('lightbox').classList.add('hide');}
+
+/* ==============================
+   モバイルナビ
+============================== */
+function mnClick(key){
+  document.querySelectorAll('.mn-item').forEach(el=>el.classList.remove('on'));
+  const map={home:'mn-home',hot:'mn-hot',fav:'mn-fav',league:'mn-league'};
+  document.getElementById(map[key])?.classList.add('on');
+  if(key==='home') filterBy('');
+  else if(key==='hot') filterBy('hot');
+  else if(key==='fav') filterBy('fav');
+}
+
+/* ==============================
+   ドロワー
+============================== */
+function openDrawer(){
+  document.getElementById('drawerBg').classList.remove('hide');
+  document.getElementById('drawer').classList.remove('hide');
+}
+function closeDrawer(){
+  document.getElementById('drawerBg').classList.add('hide');
+  document.getElementById('drawer').classList.add('hide');
+}
+function drawerPick(f){
+  closeDrawer();
+  filterBy(f);
+  document.querySelectorAll('.mn-item').forEach(el=>el.classList.remove('on'));
+  document.getElementById('mn-league').classList.add('on');
+}
+
+/* ==============================
+   ユーティリティ
+============================== */
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.style.opacity='1';
+  el.style.transform='translateX(-50%) translateY(0)';
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>{el.style.opacity='0';el.style.transform='translateX(-50%) translateY(20px)';},2500);
+}
+
+function ago(iso){
+  const s=(Date.now()-new Date(iso))/1000;
+  if(s<60) return 'たった今';
+  if(s<3600) return Math.floor(s/60)+'分前';
+  if(s<86400) return Math.floor(s/3600)+'時間前';
+  return Math.floor(s/86400)+'日前';
+}
+
+function esc(s){
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+function autoH(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,130)+'px';}
+
+/* ==============================
+   起動
+============================== */
+document.addEventListener('DOMContentLoaded',()=>{
+  loadThreads();
+  subscribeThreads();
+});
+</script>
+</body>
+</html>
